@@ -96,9 +96,10 @@
         /* Two-column layout for reading exercise */
         .two-column-layout {
             display: flex;
-            gap: 20px;
+            gap: 0;
             margin-bottom: 40px;
             min-height: 500px;
+            position: relative;
         }
 
         .column-resizer {
@@ -108,6 +109,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
         }
 
         .column-resizer:hover {
@@ -125,6 +129,18 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow: hidden;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .reading-panel {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .questions-panel {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
         }
 
         .panel-header {
@@ -146,7 +162,7 @@
         /* Reading Content */
         .reading-content {
             padding: 25px;
-            max-height: 500px;
+            height: calc(100% - 60px);
             overflow-y: auto;
         }
 
@@ -165,7 +181,7 @@
         /* Questions Container */
         .questions-container {
             padding: 25px;
-            max-height: 500px;
+            height: calc(100% - 60px);
             overflow-y: auto;
         }
 
@@ -276,12 +292,27 @@
             background-color: var(--primary-light);
         }
 
+        .true-false-option.true.selected.correct {
+            border-color: var(--correct-color);
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+
+        .true-false-option.false.selected.correct {
+            border-color: var(--correct-color);
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+
+        .true-false-option.selected.incorrect {
+            border-color: var(--incorrect-color);
+            background-color: rgba(244, 67, 54, 0.1);
+        }
+
         .true-false-option.true {
-            color: var(--correct-color);
+            color: #2e7d32;
         }
 
         .true-false-option.false {
-            color: var(--incorrect-color);
+            color: #c62828;
         }
 
         /* Matching Exercise */
@@ -314,6 +345,12 @@
             background-color: white;
             font-family: 'Open Sans', sans-serif;
             min-width: 200px;
+            cursor: pointer;
+        }
+
+        .matching-item select:focus {
+            outline: none;
+            border-color: var(--primary-color);
         }
 
         /* Short Answer */
@@ -390,6 +427,11 @@
             opacity: 0.5;
         }
 
+        .drag-item.dropped {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
         .drop-zone {
             padding: 15px;
             border: 2px dashed var(--border-color);
@@ -410,6 +452,12 @@
             background-color: var(--primary-light);
             border: 1px solid var(--primary-color);
             border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .drop-zone .drop-item:hover {
+            background-color: var(--primary-color);
+            color: white;
         }
 
         /* Gapfill Exercise */
@@ -424,8 +472,18 @@
             display: inline-block;
             min-width: 100px;
             padding: 5px;
-            border-bottom: 2px solid var(--primary-color);
             margin: 0 5px;
+            position: relative;
+        }
+
+        .gap::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--primary-color);
         }
 
         .gap input {
@@ -458,6 +516,12 @@
             border-radius: var(--radius);
             cursor: move;
             user-select: none;
+            transition: var(--transition);
+        }
+
+        .ordering-item.dragging {
+            opacity: 0.5;
+            border-style: dashed;
         }
 
         .ordering-item .handle {
@@ -656,6 +720,7 @@
         @media (max-width: 992px) {
             .two-column-layout {
                 flex-direction: column;
+                gap: 20px;
             }
             
             .column-resizer {
@@ -666,6 +731,10 @@
             
             .column-resizer i {
                 transform: rotate(90deg);
+            }
+            
+            .reading-panel, .questions-panel {
+                border-radius: var(--radius);
             }
         }
 
@@ -698,6 +767,16 @@
             .true-false-options {
                 flex-direction: column;
             }
+            
+            .matching-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .matching-item select {
+                width: 100%;
+                min-width: unset;
+            }
         }
 
         @media (max-width: 480px) {
@@ -721,6 +800,15 @@
             
             .drag-items-container {
                 flex-direction: column;
+            }
+            
+            .numerical-input-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .numerical-input {
+                width: 100%;
             }
         }
     </style>
@@ -785,7 +873,7 @@
             <div class="exercise-content">
                 <div class="two-column-layout" id="readingLayout">
                     <!-- Reading Panel -->
-                    <div class="reading-panel">
+                    <div class="reading-panel" id="readingPanel">
                         <div class="panel-header">
                             <h3><i class="fas fa-book"></i> Bài đọc</h3>
                         </div>
@@ -803,34 +891,34 @@
                     </div>
 
                     <!-- Questions Panel -->
-                    <div class="questions-panel">
+                    <div class="questions-panel" id="questionsPanel">
                         <div class="panel-header">
                             <h3><i class="fas fa-question-circle"></i> Câu hỏi</h3>
                         </div>
                         <div class="questions-container">
                             <!-- Question 1: Multiple Choice -->
-                            <div class="question-block">
+                            <div class="question-block" data-question="1">
                                 <div class="question-title">
                                     <span class="q-number-title">Câu 1:</span>
                                     <span class="q-text">How old is Jane?</span>
                                 </div>
                                 <div class="options">
-                                    <div class="option">
+                                    <div class="option" data-value="A">
                                         <input type="radio" name="reading-q1" id="reading-q1-a" value="A">
                                         <span class="option-label">A.</span>
                                         <span>10 years old</span>
                                     </div>
-                                    <div class="option">
+                                    <div class="option" data-value="B">
                                         <input type="radio" name="reading-q1" id="reading-q1-b" value="B">
                                         <span class="option-label">B.</span>
                                         <span>11 years old</span>
                                     </div>
-                                    <div class="option">
+                                    <div class="option" data-value="C">
                                         <input type="radio" name="reading-q1" id="reading-q1-c" value="C">
                                         <span class="option-label">C.</span>
                                         <span>12 years old</span>
                                     </div>
-                                    <div class="option">
+                                    <div class="option" data-value="D">
                                         <input type="radio" name="reading-q1" id="reading-q1-d" value="D">
                                         <span class="option-label">D.</span>
                                         <span>13 years old</span>
@@ -843,7 +931,7 @@
                             </div>
 
                             <!-- Question 2: True/False -->
-                            <div class="question-block">
+                            <div class="question-block" data-question="2">
                                 <div class="question-title">
                                     <span class="q-number-title">Câu 2:</span>
                                     <span class="q-text">Jane's father is a doctor.</span>
@@ -863,12 +951,12 @@
                             </div>
 
                             <!-- Question 3: Short Answer -->
-                            <div class="question-block">
+                            <div class="question-block" data-question="3">
                                 <div class="question-title">
                                     <span class="q-number-title">Câu 3:</span>
                                     <span class="q-text">What time does Jane go to school?</span>
                                 </div>
-                                <input type="text" class="short-answer-input" placeholder="Nhập câu trả lời của bạn...">
+                                <input type="text" class="short-answer-input" id="reading-q3" placeholder="Nhập câu trả lời của bạn...">
                                 <div class="explanation" id="explanation-reading-q3">
                                     <h5><i class="fas fa-lightbulb"></i> Giải thích</h5>
                                     <p>Trong bài đọc: "Jane goes to school after getting dressed at 7:45 in the morning." → Jane đi học sau khi mặc quần áo lúc 7:45 sáng.</p>
@@ -887,28 +975,28 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">We usually ______ breakfast at 6:30.</span>
                     </div>
                     <div class="options">
-                        <div class="option">
+                        <div class="option" data-value="A">
                             <input type="radio" name="mc-q1" id="mc-q1-a" value="A">
                             <span class="option-label">A.</span>
                             <span>play</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="B">
                             <input type="radio" name="mc-q1" id="mc-q1-b" value="B">
                             <span class="option-label">B.</span>
                             <span>do</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="C">
                             <input type="radio" name="mc-q1" id="mc-q1-c" value="C">
                             <span class="option-label">C.</span>
                             <span>have</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="D">
                             <input type="radio" name="mc-q1" id="mc-q1-d" value="D">
                             <span class="option-label">D.</span>
                             <span>study</span>
@@ -921,28 +1009,28 @@
                 </div>
 
                 <!-- Question 2 -->
-                <div class="question-block">
+                <div class="question-block" data-question="2">
                     <div class="question-title">
                         <span class="q-number-title">Câu 2:</span>
                         <span class="q-text">Clothes are usually keep in a ______.</span>
                     </div>
                     <div class="options">
-                        <div class="option">
+                        <div class="option" data-value="A">
                             <input type="radio" name="mc-q2" id="mc-q2-a" value="A">
                             <span class="option-label">A.</span>
                             <span>sink</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="B">
                             <input type="radio" name="mc-q2" id="mc-q2-b" value="B">
                             <span class="option-label">B.</span>
                             <span>wardrobe</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="C">
                             <input type="radio" name="mc-q2" id="mc-q2-c" value="C">
                             <span class="option-label">C.</span>
                             <span>compass</span>
                         </div>
-                        <div class="option">
+                        <div class="option" data-value="D">
                             <input type="radio" name="mc-q2" id="mc-q2-d" value="D">
                             <span class="option-label">D.</span>
                             <span>cupboard</span>
@@ -963,7 +1051,7 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">The cat is hiding under the table.</span>
@@ -983,7 +1071,7 @@
                 </div>
 
                 <!-- Question 2 -->
-                <div class="question-block">
+                <div class="question-block" data-question="2">
                     <div class="question-title">
                         <span class="q-number-title">Câu 2:</span>
                         <span class="q-text">We always have lunch in the bedroom.</span>
@@ -1010,7 +1098,7 @@
                 <h3><i class="fas fa-random"></i> Matching</h3>
             </div>
             <div class="exercise-content">
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">Nối các từ với nghĩa đúng của chúng:</span>
@@ -1019,7 +1107,7 @@
                         <div class="matching-item">
                             <span class="item-label">1.</span>
                             <span>wardrobe</span>
-                            <select class="matching-select">
+                            <select class="matching-select" id="matching-1">
                                 <option value="">Chọn nghĩa phù hợp</option>
                                 <option value="A">tủ quần áo</option>
                                 <option value="B">bàn học</option>
@@ -1030,7 +1118,7 @@
                         <div class="matching-item">
                             <span class="item-label">2.</span>
                             <span>kitchen</span>
-                            <select class="matching-select">
+                            <select class="matching-select" id="matching-2">
                                 <option value="">Chọn nghĩa phù hợp</option>
                                 <option value="A">phòng ngủ</option>
                                 <option value="B">phòng khách</option>
@@ -1041,7 +1129,7 @@
                         <div class="matching-item">
                             <span class="item-label">3.</span>
                             <span>balcony</span>
-                            <select class="matching-select">
+                            <select class="matching-select" id="matching-3">
                                 <option value="">Chọn nghĩa phù hợp</option>
                                 <option value="A">cầu thang</option>
                                 <option value="B">ban công</option>
@@ -1065,12 +1153,12 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">What is the capital of Vietnam?</span>
                     </div>
-                    <input type="text" class="short-answer-input" placeholder="Nhập câu trả lời của bạn...">
+                    <input type="text" class="short-answer-input" id="sa-q1" placeholder="Nhập câu trả lời của bạn...">
                     <div class="explanation" id="explanation-sa-q1">
                         <h5><i class="fas fa-lightbulb"></i> Giải thích</h5>
                         <p>Thủ đô của Việt Nam là Hà Nội (Hanoi).</p>
@@ -1078,12 +1166,12 @@
                 </div>
 
                 <!-- Question 2 -->
-                <div class="question-block">
+                <div class="question-block" data-question="2">
                     <div class="question-title">
                         <span class="q-number-title">Câu 2:</span>
                         <span class="q-text">What do you call a person who teaches?</span>
                     </div>
-                    <input type="text" class="short-answer-input" placeholder="Nhập câu trả lời của bạn...">
+                    <input type="text" class="short-answer-input" id="sa-q2" placeholder="Nhập câu trả lời của bạn...">
                     <div class="explanation" id="explanation-sa-q2">
                         <h5><i class="fas fa-lightbulb"></i> Giải thích</h5>
                         <p>Người dạy học được gọi là giáo viên (teacher).</p>
@@ -1099,13 +1187,13 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">What is 15 + 27?</span>
                     </div>
                     <div class="numerical-input-container">
-                        <input type="number" class="numerical-input" placeholder="Nhập số">
+                        <input type="number" class="numerical-input" id="num-q1" placeholder="Nhập số">
                         <span>= 42</span>
                     </div>
                     <div class="explanation" id="explanation-num-q1">
@@ -1115,13 +1203,13 @@
                 </div>
 
                 <!-- Question 2 -->
-                <div class="question-block">
+                <div class="question-block" data-question="2">
                     <div class="question-title">
                         <span class="q-number-title">Câu 2:</span>
                         <span class="q-text">If a book costs $12 and you buy 3 books, how much do you pay?</span>
                     </div>
                     <div class="numerical-input-container">
-                        <input type="number" class="numerical-input" placeholder="Nhập số">
+                        <input type="number" class="numerical-input" id="num-q2" placeholder="Nhập số">
                         <span>dollars</span>
                     </div>
                     <div class="explanation" id="explanation-num-q2">
@@ -1139,12 +1227,12 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">Describe your daily routine. What do you do from morning to night?</span>
                     </div>
-                    <textarea class="essay-textarea" placeholder="Viết bài luận của bạn ở đây..."></textarea>
+                    <textarea class="essay-textarea" id="essay-q1" placeholder="Viết bài luận của bạn ở đây..."></textarea>
                     <div class="explanation" id="explanation-essay-q1">
                         <h5><i class="fas fa-lightbulb"></i> Hướng dẫn</h5>
                         <p>Mô tả thói quen hàng ngày của bạn: thức dậy lúc mấy giờ, ăn sáng, đi học, hoạt động sau giờ học, thời gian nghỉ ngơi, v.v.</p>
@@ -1152,12 +1240,12 @@
                 </div>
 
                 <!-- Question 2 -->
-                <div class="question-block">
+                <div class="question-block" data-question="2">
                     <div class="question-title">
                         <span class="q-number-title">Câu 2:</span>
                         <span class="q-text">What is your favorite subject in school and why?</span>
                     </div>
-                    <textarea class="essay-textarea" placeholder="Viết bài luận của bạn ở đây..."></textarea>
+                    <textarea class="essay-textarea" id="essay-q2" placeholder="Viết bài luận của bạn ở đây..."></textarea>
                     <div class="explanation" id="explanation-essay-q2">
                         <h5><i class="fas fa-lightbulb"></i> Hướng dẫn</h5>
                         <p>Giải thích môn học yêu thích của bạn và lý do tại sao bạn thích nó (giáo viên thú vị, nội dung hấp dẫn, dễ hiểu, v.v.).</p>
@@ -1173,7 +1261,7 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">Kéo các từ vào đúng vị trí trong câu:</span>
@@ -1181,11 +1269,11 @@
                     <div class="drag-drop-container">
                         <p>Sắp xếp các từ sau thành câu hoàn chỉnh:</p>
                         <div class="drag-items-container" id="dragItems">
-                            <div class="drag-item" data-word="I">I</div>
-                            <div class="drag-item" data-word="play">play</div>
-                            <div class="drag-item" data-word="football">football</div>
-                            <div class="drag-item" data-word="every">every</div>
-                            <div class="drag-item" data-word="Sunday">Sunday</div>
+                            <div class="drag-item" data-word="I" draggable="true">I</div>
+                            <div class="drag-item" data-word="play" draggable="true">play</div>
+                            <div class="drag-item" data-word="football" draggable="true">football</div>
+                            <div class="drag-item" data-word="every" draggable="true">every</div>
+                            <div class="drag-item" data-word="Sunday" draggable="true">Sunday</div>
                         </div>
                         <p>Thả từ vào đây:</p>
                         <div class="drop-zone" id="dropZone">
@@ -1207,17 +1295,17 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">Điền từ thích hợp vào chỗ trống:</span>
                     </div>
                     <div class="gapfill-exercise">
                         <p>
-                            My name <span class="gap"><input type="text" maxlength="2"></span> Jane. 
-                            I <span class="gap"><input type="text" maxlength="3"></span> twelve years old. 
-                            I live <span class="gap"><input type="text" maxlength="4"></span> Hanoi 
-                            with my family. My father <span class="gap"><input type="text" maxlength="2"></span> a teacher.
+                            My name <span class="gap"><input type="text" maxlength="2" id="gap-1"></span> Jane. 
+                            I <span class="gap"><input type="text" maxlength="3" id="gap-2"></span> twelve years old. 
+                            I live <span class="gap"><input type="text" maxlength="4" id="gap-3"></span> Hanoi 
+                            with my family. My father <span class="gap"><input type="text" maxlength="2" id="gap-4"></span> a teacher.
                         </p>
                     </div>
                     <div class="explanation" id="explanation-gapfill-q1">
@@ -1235,25 +1323,25 @@
             </div>
             <div class="exercise-content">
                 <!-- Question 1 -->
-                <div class="question-block">
+                <div class="question-block" data-question="1">
                     <div class="question-title">
                         <span class="q-number-title">Câu 1:</span>
                         <span class="q-text">Sắp xếp các bước đánh răng đúng thứ tự:</span>
                     </div>
                     <div class="ordering-container" id="orderingContainer">
-                        <div class="ordering-item" data-order="3">
+                        <div class="ordering-item" data-order="3" draggable="true">
                             <span class="handle"><i class="fas fa-arrows-alt-v"></i></span>
                             <span class="item-text">Súc miệng với nước</span>
                         </div>
-                        <div class="ordering-item" data-order="1">
+                        <div class="ordering-item" data-order="1" draggable="true">
                             <span class="handle"><i class="fas fa-arrows-alt-v"></i></span>
                             <span class="item-text">Lấy kem đánh răng</span>
                         </div>
-                        <div class="ordering-item" data-order="4">
+                        <div class="ordering-item" data-order="4" draggable="true">
                             <span class="handle"><i class="fas fa-arrows-alt-v"></i></span>
                             <span class="item-text">Rửa sạch bàn chải</span>
                         </div>
-                        <div class="ordering-item" data-order="2">
+                        <div class="ordering-item" data-order="2" draggable="true">
                             <span class="handle"><i class="fas fa-arrows-alt-v"></i></span>
                             <span class="item-text">Chải răng trong 2 phút</span>
                         </div>
@@ -1310,15 +1398,24 @@
         let currentExercise = 'reading';
         let examSubmitted = false;
         let isResizing = false;
-        let startX, startWidth;
+        let startX, startWidth, startQuestionsWidth;
+        let readingPanel, questionsPanel, columnResizer;
 
         // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
+            initComponents();
             initEventListeners();
             initDragAndDrop();
             initOrdering();
             initReadingLayoutResizer();
         });
+
+        // Khởi tạo components
+        function initComponents() {
+            readingPanel = document.getElementById('readingPanel');
+            questionsPanel = document.getElementById('questionsPanel');
+            columnResizer = document.getElementById('columnResizer');
+        }
 
         // Khởi tạo event listeners
         function initEventListeners() {
@@ -1335,26 +1432,49 @@
                 });
             });
 
-            // Option selection
-            document.querySelectorAll('.option input[type="radio"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    const option = this.closest('.option');
-                    const questionBlock = option.closest('.question-block');
-                    
-                    // Remove selected from other options
-                    questionBlock.querySelectorAll('.option').forEach(opt => {
-                        opt.classList.remove('selected');
-                    });
-                    
-                    // Add selected to current option
-                    option.classList.add('selected');
-                });
+            // Option selection - FIXED: Sử dụng event delegation
+            document.addEventListener('change', function(e) {
+                if (e.target.type === 'radio') {
+                    const option = e.target.closest('.option');
+                    if (option) {
+                        const questionBlock = option.closest('.question-block');
+                        
+                        // Remove selected from other options in the same question
+                        questionBlock.querySelectorAll('.option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+                        
+                        // Add selected to current option
+                        option.classList.add('selected');
+                    }
+                }
             });
 
-            // True/False selection
-            document.querySelectorAll('.true-false-option').forEach(option => {
-                option.addEventListener('click', function() {
-                    const questionBlock = this.closest('.question-block');
+            // Option click handler - FIXED: Thêm xử lý click trực tiếp
+            document.addEventListener('click', function(e) {
+                const option = e.target.closest('.option');
+                if (option && !e.target.type) {
+                    const radioInput = option.querySelector('input[type="radio"]');
+                    if (radioInput) {
+                        radioInput.checked = true;
+                        const questionBlock = option.closest('.question-block');
+                        
+                        // Remove selected from other options
+                        questionBlock.querySelectorAll('.option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+                        
+                        // Add selected to current option
+                        option.classList.add('selected');
+                    }
+                }
+            });
+
+            // True/False selection - FIXED: Sử dụng event delegation
+            document.addEventListener('click', function(e) {
+                const tfOption = e.target.closest('.true-false-option');
+                if (tfOption && !examSubmitted) {
+                    const questionBlock = tfOption.closest('.question-block');
                     
                     // Remove selected from other options
                     questionBlock.querySelectorAll('.true-false-option').forEach(opt => {
@@ -1362,8 +1482,26 @@
                     });
                     
                     // Add selected to current option
-                    this.classList.add('selected');
-                });
+                    tfOption.classList.add('selected');
+                }
+            });
+
+            // Select change handler
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('matching-select')) {
+                    // Xử lý khi chọn option trong matching
+                    console.log('Selected:', e.target.value);
+                }
+            });
+
+            // Input change handlers
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('short-answer-input') ||
+                    e.target.classList.contains('numerical-input') ||
+                    e.target.classList.contains('essay-textarea') ||
+                    e.target.classList.contains('gapfill-exercise')?.contains(e.target)) {
+                    // Xử lý khi nhập nội dung
+                }
             });
 
             // Submit button
@@ -1386,7 +1524,10 @@
             });
             
             // Hiện bài tập được chọn
-            document.getElementById(type + 'Exercise').style.display = 'block';
+            const targetExercise = document.getElementById(type + 'Exercise');
+            if (targetExercise) {
+                targetExercise.style.display = 'block';
+            }
         }
 
         // Khởi tạo drag and drop
@@ -1398,6 +1539,7 @@
                 item.addEventListener('dragstart', function(e) {
                     this.classList.add('dragging');
                     e.dataTransfer.setData('text/plain', this.getAttribute('data-word'));
+                    e.dataTransfer.effectAllowed = 'move';
                 });
 
                 item.addEventListener('dragend', function() {
@@ -1407,6 +1549,7 @@
 
             dropZone.addEventListener('dragover', function(e) {
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 this.classList.add('active');
             });
 
@@ -1419,9 +1562,18 @@
                 this.classList.remove('active');
                 
                 const word = e.dataTransfer.getData('text/plain');
-                const dragItem = document.querySelector(`.drag-item[data-word="${word}"]`);
+                const dragItems = document.querySelectorAll('.drag-item');
+                let dragItem = null;
                 
-                if (dragItem && !dragItem.classList.contains('dropped')) {
+                // Tìm item chưa được dropped
+                for (let item of dragItems) {
+                    if (item.getAttribute('data-word') === word && !item.classList.contains('dropped')) {
+                        dragItem = item;
+                        break;
+                    }
+                }
+                
+                if (dragItem) {
                     // Create a new element in drop zone
                     const dropItem = document.createElement('span');
                     dropItem.className = 'drop-item';
@@ -1431,10 +1583,12 @@
                     // Add remove functionality
                     dropItem.addEventListener('click', function() {
                         const word = this.getAttribute('data-word');
-                        const originalItem = document.querySelector(`.drag-item[data-word="${word}"]`);
-                        if (originalItem) {
-                            originalItem.classList.remove('dropped');
-                        }
+                        const originalItems = document.querySelectorAll(`.drag-item[data-word="${word}"]`);
+                        originalItems.forEach(item => {
+                            if (item.classList.contains('dropped')) {
+                                item.classList.remove('dropped');
+                            }
+                        });
                         this.remove();
                     });
                     
@@ -1442,7 +1596,6 @@
                     
                     // Mark original as dropped
                     dragItem.classList.add('dropped');
-                    dragItem.style.opacity = '0.5';
                 }
             });
         }
@@ -1453,111 +1606,124 @@
             let draggedItem = null;
 
             container.querySelectorAll('.ordering-item').forEach(item => {
-                item.setAttribute('draggable', true);
-
-                item.addEventListener('dragstart', function() {
+                item.addEventListener('dragstart', function(e) {
                     draggedItem = this;
-                    setTimeout(() => this.style.display = 'none', 0);
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-order'));
                 });
 
                 item.addEventListener('dragend', function() {
-                    setTimeout(() => {
-                        draggedItem.style.display = '';
-                        draggedItem = null;
-                    }, 0);
+                    this.classList.remove('dragging');
+                    draggedItem = null;
                 });
 
                 item.addEventListener('dragover', function(e) {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
                 });
 
                 item.addEventListener('dragenter', function(e) {
                     e.preventDefault();
                     if (this !== draggedItem) {
-                        container.insertBefore(draggedItem, this);
+                        const rect = this.getBoundingClientRect();
+                        const midpoint = rect.top + rect.height / 2;
+                        
+                        if (e.clientY > midpoint) {
+                            container.insertBefore(draggedItem, this.nextSibling);
+                        } else {
+                            container.insertBefore(draggedItem, this);
+                        }
                     }
                 });
             });
         }
 
-        // Khởi tạo resizer cho reading layout
+        // Khởi tạo resizer cho reading layout - FIXED
         function initReadingLayoutResizer() {
-            const resizer = document.getElementById('columnResizer');
-            const readingLayout = document.getElementById('readingLayout');
-            const readingPanel = readingLayout.querySelector('.reading-panel');
-            const questionsPanel = readingLayout.querySelector('.questions-panel');
-
-            resizer.addEventListener('mousedown', function(e) {
+            if (!columnResizer || !readingPanel || !questionsPanel) return;
+            
+            columnResizer.addEventListener('mousedown', startResize);
+            columnResizer.addEventListener('touchstart', startResizeTouch);
+            
+            function startResize(e) {
+                e.preventDefault();
                 isResizing = true;
                 startX = e.clientX;
                 startWidth = readingPanel.offsetWidth;
+                startQuestionsWidth = questionsPanel.offsetWidth;
                 
                 document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
+                document.addEventListener('mouseup', stopResize);
                 
                 // Add resize cursor
                 document.body.style.cursor = 'col-resize';
-                readingLayout.style.userSelect = 'none';
-            });
+                document.body.style.userSelect = 'none';
+            }
+            
+            function startResizeTouch(e) {
+                e.preventDefault();
+                isResizing = true;
+                startX = e.touches[0].clientX;
+                startWidth = readingPanel.offsetWidth;
+                startQuestionsWidth = questionsPanel.offsetWidth;
+                
+                document.addEventListener('touchmove', handleTouchMove);
+                document.addEventListener('touchend', stopResize);
+            }
 
             function handleMouseMove(e) {
                 if (!isResizing) return;
                 
-                const delta = e.clientX - startX;
-                const newWidth = startWidth + delta;
-                const containerWidth = readingLayout.offsetWidth;
+                const deltaX = e.clientX - startX;
+                const newWidth = startWidth + deltaX;
+                const containerWidth = readingPanel.parentElement.offsetWidth;
+                const resizerWidth = columnResizer.offsetWidth;
                 
-                // Limit min and max width
+                // Limit min and max width (200px min each panel)
                 const minWidth = 200;
-                const maxWidth = containerWidth - 200;
+                const maxWidth = containerWidth - minWidth - resizerWidth;
                 
                 if (newWidth >= minWidth && newWidth <= maxWidth) {
                     readingPanel.style.width = newWidth + 'px';
-                    questionsPanel.style.width = (containerWidth - newWidth - 10) + 'px';
+                    readingPanel.style.flex = 'none';
+                    
+                    questionsPanel.style.width = (containerWidth - newWidth - resizerWidth) + 'px';
+                    questionsPanel.style.flex = 'none';
+                }
+            }
+            
+            function handleTouchMove(e) {
+                if (!isResizing || !e.touches[0]) return;
+                
+                const deltaX = e.touches[0].clientX - startX;
+                const newWidth = startWidth + deltaX;
+                const containerWidth = readingPanel.parentElement.offsetWidth;
+                const resizerWidth = columnResizer.offsetWidth;
+                
+                // Limit min and max width (200px min each panel)
+                const minWidth = 200;
+                const maxWidth = containerWidth - minWidth - resizerWidth;
+                
+                if (newWidth >= minWidth && newWidth <= maxWidth) {
+                    readingPanel.style.width = newWidth + 'px';
+                    readingPanel.style.flex = 'none';
+                    
+                    questionsPanel.style.width = (containerWidth - newWidth - resizerWidth) + 'px';
+                    questionsPanel.style.flex = 'none';
                 }
             }
 
-            function handleMouseUp() {
+            function stopResize() {
                 isResizing = false;
                 document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
+                document.removeEventListener('mouseup', stopResize);
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', stopResize);
                 
                 // Reset cursor
                 document.body.style.cursor = '';
-                readingLayout.style.userSelect = '';
-            }
-
-            // Touch events for mobile
-            resizer.addEventListener('touchstart', function(e) {
-                isResizing = true;
-                startX = e.touches[0].clientX;
-                startWidth = readingPanel.offsetWidth;
-                
-                document.addEventListener('touchmove', handleTouchMove);
-                document.addEventListener('touchend', handleTouchEnd);
-            });
-
-            function handleTouchMove(e) {
-                if (!isResizing) return;
-                
-                const delta = e.touches[0].clientX - startX;
-                const newWidth = startWidth + delta;
-                const containerWidth = readingLayout.offsetWidth;
-                
-                // Limit min and max width
-                const minWidth = 200;
-                const maxWidth = containerWidth - 200;
-                
-                if (newWidth >= minWidth && newWidth <= maxWidth) {
-                    readingPanel.style.width = newWidth + 'px';
-                    questionsPanel.style.width = (containerWidth - newWidth - 10) + 'px';
-                }
-            }
-
-            function handleTouchEnd() {
-                isResizing = false;
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
+                document.body.style.userSelect = '';
             }
         }
 
@@ -1565,6 +1731,10 @@
         function submitExam() {
             if (examSubmitted) {
                 alert('Bài tập đã được nộp!');
+                return;
+            }
+            
+            if (!confirm('Bạn có chắc chắn muốn nộp bài?')) {
                 return;
             }
             
@@ -1586,7 +1756,19 @@
             // Vô hiệu hóa drag and drop
             document.querySelectorAll('.drag-item, .ordering-item').forEach(item => {
                 item.setAttribute('draggable', false);
+                item.style.cursor = 'default';
             });
+            
+            // Vô hiệu hóa true/false options
+            document.querySelectorAll('.true-false-option').forEach(option => {
+                option.style.cursor = 'default';
+                option.onclick = null;
+            });
+            
+            // Vô hiệu hóa column resizer
+            columnResizer.style.cursor = 'default';
+            columnResizer.onmousedown = null;
+            columnResizer.ontouchstart = null;
             
             // Đổi text nút
             document.getElementById('submitBtn').innerHTML = '<i class="fas fa-check"></i> Đã nộp';
@@ -1595,52 +1777,170 @@
             alert('Bạn đã nộp bài thành công! Kết quả đã được hiển thị.');
         }
 
-        // Đánh giá đáp án
+        // Đánh giá đáp án - FIXED: Xử lý tất cả dạng câu hỏi
         function evaluateAnswers() {
             // Reading Exercise
+            // Q1: Multiple choice
             const readingQ1 = document.querySelector('input[name="reading-q1"]:checked');
-            if (readingQ1 && readingQ1.value === 'B') {
-                readingQ1.closest('.option').classList.add('correct');
-            } else if (readingQ1) {
-                readingQ1.closest('.option').classList.add('incorrect');
+            if (readingQ1) {
+                const option = readingQ1.closest('.option');
+                if (readingQ1.value === 'B') {
+                    option.classList.add('correct');
+                } else {
+                    option.classList.add('incorrect');
+                }
             }
             
-            // Multiple Choice
+            // Q2: True/False
+            const readingQ2Option = document.querySelector('.reading-exercise .true-false-option.selected');
+            if (readingQ2Option && readingQ2Option.classList.contains('false')) {
+                readingQ2Option.classList.add('correct');
+            } else if (readingQ2Option) {
+                readingQ2Option.classList.add('incorrect');
+            }
+            
+            // Q3: Short answer
+            const readingQ3Input = document.getElementById('reading-q3');
+            if (readingQ3Input) {
+                const answer = readingQ3Input.value.trim().toLowerCase();
+                if (answer === '7:45' || answer === '7.45' || answer === 'seven forty-five') {
+                    readingQ3Input.style.borderColor = 'var(--correct-color)';
+                    readingQ3Input.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                } else if (answer) {
+                    readingQ3Input.style.borderColor = 'var(--incorrect-color)';
+                    readingQ3Input.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                }
+            }
+            
+            // Multiple Choice Exercise
+            // Q1
             const mcQ1 = document.querySelector('input[name="mc-q1"]:checked');
-            if (mcQ1 && mcQ1.value === 'C') {
-                mcQ1.closest('.option').classList.add('correct');
-            } else if (mcQ1) {
-                mcQ1.closest('.option').classList.add('incorrect');
+            if (mcQ1) {
+                const option = mcQ1.closest('.option');
+                if (mcQ1.value === 'C') {
+                    option.classList.add('correct');
+                } else {
+                    option.classList.add('incorrect');
+                }
             }
             
+            // Q2
             const mcQ2 = document.querySelector('input[name="mc-q2"]:checked');
-            if (mcQ2 && mcQ2.value === 'B') {
-                mcQ2.closest('.option').classList.add('correct');
-            } else if (mcQ2) {
-                mcQ2.closest('.option').classList.add('incorrect');
+            if (mcQ2) {
+                const option = mcQ2.closest('.option');
+                if (mcQ2.value === 'B') {
+                    option.classList.add('correct');
+                } else {
+                    option.classList.add('incorrect');
+                }
             }
             
-            // True/False
-            const tfOptions = document.querySelectorAll('.true-false-option.selected');
-            tfOptions.forEach(option => {
-                const isTrue = option.classList.contains('true');
-                const questionBlock = option.closest('.question-block');
-                const questionText = questionBlock.querySelector('.q-text').textContent;
-                
-                // Câu 1: "The cat is hiding under the table." → True
-                if (questionText.includes('cat is hiding') && isTrue) {
-                    option.classList.add('correct');
-                } else if (questionText.includes('cat is hiding') && !isTrue) {
-                    option.classList.add('incorrect');
+            // True/False Exercise
+            // Q1
+            const tfQ1Option = document.querySelector('.true-false-exercise .question-block[data-question="1"] .true-false-option.selected');
+            if (tfQ1Option && tfQ1Option.classList.contains('true')) {
+                tfQ1Option.classList.add('correct');
+            } else if (tfQ1Option) {
+                tfQ1Option.classList.add('incorrect');
+            }
+            
+            // Q2
+            const tfQ2Option = document.querySelector('.true-false-exercise .question-block[data-question="2"] .true-false-option.selected');
+            if (tfQ2Option && tfQ2Option.classList.contains('false')) {
+                tfQ2Option.classList.add('correct');
+            } else if (tfQ2Option) {
+                tfQ2Option.classList.add('incorrect');
+            }
+            
+            // Matching Exercise
+            const matching1 = document.getElementById('matching-1');
+            const matching2 = document.getElementById('matching-2');
+            const matching3 = document.getElementById('matching-3');
+            
+            if (matching1 && matching1.value === 'A') matching1.style.borderColor = 'var(--correct-color)';
+            else if (matching1 && matching1.value) matching1.style.borderColor = 'var(--incorrect-color)';
+            
+            if (matching2 && matching2.value === 'C') matching2.style.borderColor = 'var(--correct-color)';
+            else if (matching2 && matching2.value) matching2.style.borderColor = 'var(--incorrect-color)';
+            
+            if (matching3 && matching3.value === 'B') matching3.style.borderColor = 'var(--correct-color)';
+            else if (matching3 && matching3.value) matching3.style.borderColor = 'var(--incorrect-color)';
+            
+            // Short Answer
+            const saQ1 = document.getElementById('sa-q1');
+            const saQ2 = document.getElementById('sa-q2');
+            
+            if (saQ1) {
+                const answer = saQ1.value.trim().toLowerCase();
+                if (answer === 'hanoi' || answer === 'ha noi') {
+                    saQ1.style.borderColor = 'var(--correct-color)';
+                    saQ1.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                } else if (answer) {
+                    saQ1.style.borderColor = 'var(--incorrect-color)';
+                    saQ1.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
                 }
-                
-                // Câu 2: "We always have lunch in the bedroom." → False
-                if (questionText.includes('lunch in the bedroom') && !isTrue) {
-                    option.classList.add('correct');
-                } else if (questionText.includes('lunch in the bedroom') && isTrue) {
-                    option.classList.add('incorrect');
+            }
+            
+            if (saQ2) {
+                const answer = saQ2.value.trim().toLowerCase();
+                if (answer === 'teacher') {
+                    saQ2.style.borderColor = 'var(--correct-color)';
+                    saQ2.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                } else if (answer) {
+                    saQ2.style.borderColor = 'var(--incorrect-color)';
+                    saQ2.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
                 }
-            });
+            }
+            
+            // Numerical
+            const numQ1 = document.getElementById('num-q1');
+            const numQ2 = document.getElementById('num-q2');
+            
+            if (numQ1 && parseInt(numQ1.value) === 42) {
+                numQ1.style.borderColor = 'var(--correct-color)';
+                numQ1.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+            } else if (numQ1 && numQ1.value) {
+                numQ1.style.borderColor = 'var(--incorrect-color)';
+                numQ1.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+            }
+            
+            if (numQ2 && parseInt(numQ2.value) === 36) {
+                numQ2.style.borderColor = 'var(--correct-color)';
+                numQ2.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+            } else if (numQ2 && numQ2.value) {
+                numQ2.style.borderColor = 'var(--incorrect-color)';
+                numQ2.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+            }
+            
+            // Gapfill
+            const gap1 = document.getElementById('gap-1');
+            const gap2 = document.getElementById('gap-2');
+            const gap3 = document.getElementById('gap-3');
+            const gap4 = document.getElementById('gap-4');
+            
+            if (gap1 && gap1.value.toLowerCase() === 'is') {
+                gap1.style.color = 'var(--correct-color)';
+            } else if (gap1 && gap1.value) {
+                gap1.style.color = 'var(--incorrect-color)';
+            }
+            
+            if (gap2 && gap2.value.toLowerCase() === 'am') {
+                gap2.style.color = 'var(--correct-color)';
+            } else if (gap2 && gap2.value) {
+                gap2.style.color = 'var(--incorrect-color)';
+            }
+            
+            if (gap3 && gap3.value.toLowerCase() === 'in') {
+                gap3.style.color = 'var(--correct-color)';
+            } else if (gap3 && gap3.value) {
+                gap3.style.color = 'var(--incorrect-color)';
+            }
+            
+            if (gap4 && gap4.value.toLowerCase() === 'is') {
+                gap4.style.color = 'var(--correct-color)';
+            } else if (gap4 && gap4.value) {
+                gap4.style.color = 'var(--incorrect-color)';
+            }
         }
 
         // Làm lại bài
@@ -1654,6 +1954,10 @@
             // Reset tất cả input
             document.querySelectorAll('input, select, textarea').forEach(input => {
                 input.disabled = false;
+                input.style.borderColor = '';
+                input.style.backgroundColor = '';
+                input.style.color = '';
+                
                 if (input.type === 'radio' || input.type === 'checkbox') {
                     input.checked = false;
                 } else {
@@ -1669,12 +1973,15 @@
             // Reset true/false
             document.querySelectorAll('.true-false-option').forEach(option => {
                 option.classList.remove('selected', 'correct', 'incorrect');
+                option.style.cursor = 'pointer';
             });
             
             // Reset drag and drop
             document.querySelectorAll('.drag-item').forEach(item => {
-                item.classList.remove('dropped');
+                item.classList.remove('dropped', 'dragging');
                 item.style.opacity = '1';
+                item.setAttribute('draggable', true);
+                item.style.cursor = 'move';
             });
             
             document.getElementById('dropZone').innerHTML = '';
@@ -1684,7 +1991,16 @@
             const items = Array.from(orderingContainer.querySelectorAll('.ordering-item'));
             items.sort((a, b) => parseInt(a.getAttribute('data-order')) - parseInt(b.getAttribute('data-order')));
             orderingContainer.innerHTML = '';
-            items.forEach(item => orderingContainer.appendChild(item));
+            items.forEach(item => {
+                item.classList.remove('dragging');
+                item.setAttribute('draggable', true);
+                item.style.cursor = 'move';
+                orderingContainer.appendChild(item);
+            });
+            
+            // Kích hoạt lại column resizer
+            columnResizer.style.cursor = 'col-resize';
+            initReadingLayoutResizer();
             
             // Reinitialize drag and drop and ordering
             initDragAndDrop();
@@ -1707,58 +2023,104 @@
                 explanation.classList.add('show');
             });
             
-            // Điền đáp án đúng
+            // Điền đáp án đúng cho tất cả câu hỏi
             // Reading Q1
             document.getElementById('reading-q1-b').checked = true;
-            document.getElementById('reading-q1-b').closest('.option').classList.add('correct');
+            document.getElementById('reading-q1-b').closest('.option').classList.add('selected', 'correct');
             
             // Reading Q2
             const readingQ2False = document.querySelector('.reading-exercise .true-false-option.false');
             readingQ2False.classList.add('selected', 'correct');
             
             // Reading Q3
-            const readingQ3Input = document.querySelector('.reading-exercise .short-answer-input');
-            readingQ3Input.value = '7:45';
+            const readingQ3Input = document.getElementById('reading-q3');
+            if (readingQ3Input) readingQ3Input.value = '7:45';
             
             // Multiple Choice Q1
             document.getElementById('mc-q1-c').checked = true;
-            document.getElementById('mc-q1-c').closest('.option').classList.add('correct');
+            document.getElementById('mc-q1-c').closest('.option').classList.add('selected', 'correct');
             
             // Multiple Choice Q2
             document.getElementById('mc-q2-b').checked = true;
-            document.getElementById('mc-q2-b').closest('.option').classList.add('correct');
+            document.getElementById('mc-q2-b').closest('.option').classList.add('selected', 'correct');
             
             // True/False Q1
-            document.querySelector('.true-false-exercise .true-false-option.true').classList.add('selected', 'correct');
+            const tfQ1True = document.querySelector('.true-false-exercise .question-block[data-question="1"] .true-false-option.true');
+            if (tfQ1True) tfQ1True.classList.add('selected', 'correct');
             
             // True/False Q2
-            document.querySelector('.true-false-exercise .true-false-option.false').classList.add('selected', 'correct');
+            const tfQ2False = document.querySelector('.true-false-exercise .question-block[data-question="2"] .true-false-option.false');
+            if (tfQ2False) tfQ2False.classList.add('selected', 'correct');
             
             // Matching
-            document.querySelectorAll('.matching-select').forEach((select, index) => {
-                if (index === 0) select.value = 'A'; // wardrobe
-                if (index === 1) select.value = 'C'; // kitchen
-                if (index === 2) select.value = 'B'; // balcony
-            });
+            const matching1 = document.getElementById('matching-1');
+            const matching2 = document.getElementById('matching-2');
+            const matching3 = document.getElementById('matching-3');
+            
+            if (matching1) matching1.value = 'A';
+            if (matching2) matching2.value = 'C';
+            if (matching3) matching3.value = 'B';
             
             // Short Answer
-            document.querySelectorAll('.short-answer-exercise .short-answer-input').forEach((input, index) => {
-                if (index === 0) input.value = 'Hanoi';
-                if (index === 1) input.value = 'teacher';
-            });
+            const saQ1 = document.getElementById('sa-q1');
+            const saQ2 = document.getElementById('sa-q2');
+            
+            if (saQ1) saQ1.value = 'Hanoi';
+            if (saQ2) saQ2.value = 'teacher';
             
             // Numerical
-            document.querySelectorAll('.numerical-input').forEach((input, index) => {
-                if (index === 0) input.value = '42';
-                if (index === 1) input.value = '36';
-            });
+            const numQ1 = document.getElementById('num-q1');
+            const numQ2 = document.getElementById('num-q2');
+            
+            if (numQ1) numQ1.value = '42';
+            if (numQ2) numQ2.value = '36';
             
             // Gapfill
-            const gapInputs = document.querySelectorAll('.gapfill-exercise input');
-            gapInputs[0].value = 'is';
-            gapInputs[1].value = 'am';
-            gapInputs[2].value = 'in';
-            gapInputs[3].value = 'is';
+            const gap1 = document.getElementById('gap-1');
+            const gap2 = document.getElementById('gap-2');
+            const gap3 = document.getElementById('gap-3');
+            const gap4 = document.getElementById('gap-4');
+            
+            if (gap1) gap1.value = 'is';
+            if (gap2) gap2.value = 'am';
+            if (gap3) gap3.value = 'in';
+            if (gap4) gap4.value = 'is';
+            
+            // Drag and Drop - tạo câu hoàn chỉnh
+            const dropZone = document.getElementById('dropZone');
+            dropZone.innerHTML = '';
+            ['I', 'play', 'football', 'every', 'Sunday'].forEach(word => {
+                const span = document.createElement('span');
+                span.className = 'drop-item';
+                span.textContent = word;
+                span.setAttribute('data-word', word);
+                dropZone.appendChild(span);
+            });
+            
+            // Ordering - sắp xếp đúng thứ tự
+            const orderingContainer = document.getElementById('orderingContainer');
+            const items = [
+                {order: 1, text: 'Lấy kem đánh răng'},
+                {order: 2, text: 'Chải răng trong 2 phút'},
+                {order: 3, text: 'Súc miệng với nước'},
+                {order: 4, text: 'Rửa sạch bàn chải'}
+            ];
+            
+            orderingContainer.innerHTML = '';
+            items.forEach(itemData => {
+                const item = document.createElement('div');
+                item.className = 'ordering-item';
+                item.setAttribute('data-order', itemData.order);
+                item.setAttribute('draggable', 'true');
+                item.innerHTML = `
+                    <span class="handle"><i class="fas fa-arrows-alt-v"></i></span>
+                    <span class="item-text">${itemData.text}</span>
+                `;
+                orderingContainer.appendChild(item);
+            });
+            
+            // Reinitialize ordering
+            initOrdering();
             
             alert('Đã hiển thị tất cả đáp án đúng!');
         }
